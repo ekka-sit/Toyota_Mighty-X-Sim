@@ -3,265 +3,561 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toyota Mighty-X Web Dashboard</title>
+    <title>Toyota Mighty-X Digital Cluster</title>
     <style>
+        :root {
+            --bg-color: #08090c;
+            --panel-bg: #1c1f26;
+            --gauge-bg: #111317;
+            --text-color: #f0f0f0;
+            --accent-red: #e53935;
+            --needle-color: #ffffff;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
 
         body {
-            background-color: #121212;
-            color: #ffffff;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 15px;
         }
 
-        h1 {
-            margin-bottom: 20px;
-            color: #e0e0e0;
-        }
-
-        .controls {
-            margin-bottom: 30px;
+        /* Top Bar & Connection Controls */
+        .control-bar {
+            width: 100%;
+            max-width: 1400px;
             display: flex;
-            gap: 15px;
+            justify-content: space-between;
             align-items: center;
+            background: #14161b;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #2a2d36;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
         }
 
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            color: #fff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        .status {
-            font-size: 14px;
-            padding: 6px 12px;
-            border-radius: 4px;
-            background-color: #333;
-        }
-
-        .status.connected {
-            background-color: #28a745;
-            color: white;
-        }
-
-        .dashboard-container {
+        .status-container {
             display: flex;
-            gap: 40px;
-            background-color: #1e1e1e;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            align-items: center;
+            gap: 12px;
         }
 
+        .status-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--accent-red);
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .status-dot.connected {
+            background-color: #00e676;
+            box-shadow: 0 0 10px #00e676;
+        }
+
+        .btn {
+            background-color: #2b303a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #3b4250;
+            border-color: #666;
+        }
+
+        .btn-connect {
+            background-color: #1976d2;
+            border-color: #1565c0;
+        }
+
+        .btn-connect:hover {
+            background-color: #2196f3;
+        }
+
+        /* Main Cluster Outer Frame */
+        .dashboard-container {
+            position: relative;
+            width: 100%;
+            max-width: 1400px;
+            background: linear-gradient(180deg, #282c35 0%, #121418 100%);
+            border: 4px solid #363b47;
+            border-radius: 30px 30px 20px 20px;
+            padding: 25px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.9), inset 0 2px 4px rgba(255,255,255,0.15);
+        }
+
+        .dashboard-inner {
+            background-color: var(--gauge-bg);
+            border: 3px solid #0a0b0d;
+            border-radius: 20px;
+            padding: 25px;
+            display: grid;
+            grid-template-columns: 1.1fr 2.4fr 2.4fr 1.1fr;
+            gap: 20px;
+            align-items: center;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.95);
+        }
+
+        /* Gauge Layout */
         .gauge-card {
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-
-        .gauge {
-            position: relative;
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #2a2a2a 60%, #111 100%);
-            border: 6px solid #444;
-            display: flex;
             justify-content: center;
-            align-items: center;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+            position: relative;
+            width: 100%;
         }
 
-        /* เข็มเรือนไมล์ */
+        .side-gauges {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 100%;
+            gap: 20px;
+        }
+
+        .small-gauge-box {
+            background: #14161b;
+            border: 2px solid #252830;
+            border-radius: 8px;
+            padding: 10px 8px;
+            text-align: center;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+        }
+
+        .small-gauge-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: #8a8d93;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
+        /* SVG Gauges Styling */
+        svg {
+            width: 100%;
+            height: auto;
+            overflow: visible;
+        }
+
+        .gauge-text {
+            fill: #ffffff;
+            font-size: 15px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+
+        .gauge-unit {
+            fill: #8a8d93;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            dominant-baseline: central;
+        }
+
         .needle {
-            position: absolute;
-            width: 4px;
-            height: 90px;
-            background-color: #ff3333;
-            bottom: 50%;
-            transform-origin: bottom center;
-            transform: rotate(-120deg); /* จุดเริ่มต้นที่ 0 */
-            border-radius: 2px;
-            box-shadow: 0 0 5px rgba(255, 51, 51, 0.8);
-            
-            /* หัวใจสำคัญ: ปรับ Smooth Transition ให้สอดคล้องกับ STM32 ที่ส่งทุก 200ms */
-            transition: transform 0.2s ease-out;
+            stroke: var(--needle-color);
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            transition: transform 0.15s ease-out;
+            transform-origin: 100px 100px;
+            filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.8));
         }
 
         .needle-cap {
+            fill: #1a1c23;
+            stroke: #444a57;
+            stroke-width: 2.5;
+        }
+
+        /* Odometer Display */
+        .odometer-box {
             position: absolute;
-            width: 18px;
-            height: 18px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-        }
-
-        .gauge-title {
-            margin-top: 15px;
-            font-size: 18px;
-            color: #aaa;
-        }
-
-        .gauge-value {
-            margin-top: 5px;
-            font-size: 24px;
+            bottom: 65px;
+            background-color: #050505;
+            border: 2px solid #2a2e38;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
-            color: #00e676;
+            font-size: 15px;
+            color: #fff;
+            letter-spacing: 3px;
+            box-shadow: inset 0 0 6px rgba(255,255,255,0.15);
+        }
+
+        /* Linear Gauge Needle Smooth Animation */
+        .linear-needle-group {
+            transition: transform 0.15s ease-out;
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 950px) {
+            .dashboard-inner {
+                grid-template-columns: 1fr 1fr;
+            }
+            .side-gauges {
+                flex-direction: row;
+                grid-column: span 2;
+            }
         }
     </style>
 </head>
 <body>
 
-    <h1>Toyota Mighty-X (2L) Dashboard</h1>
-
-    <div class="controls">
-        <button id="connectBtn">เชื่อมต่อ STM32 (Serial)</button>
-        <span id="statusText" class="status">ยังไม่ได้เชื่อมต่อ</span>
+    <!-- Connection Control Bar -->
+    <div class="control-bar">
+        <div class="status-container">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText" style="font-weight: bold; font-size: 15px;">ไม่ได้เชื่อมต่อ (Disconnected)</span>
+        </div>
+        <div>
+            <button id="btnDemo" class="btn" onclick="toggleDemo()">โหมดทดสอบ (Demo Mode)</button>
+            <button id="btnConnect" class="btn btn-connect" onclick="connectSerial()">🔌 เชื่อมต่อ UART (Connect)</button>
+        </div>
     </div>
 
+    <!-- Main Dashboard Frame -->
     <div class="dashboard-container">
-        <!-- Gauge 1: RPM -->
-        <div class="gauge-card">
-            <div class="gauge">
-                <div id="rpmNeedle" class="needle"></div>
-                <div class="needle-cap"></div>
-            </div>
-            <div class="gauge-title">รอบเครื่องยนต์ (RPM)</div>
-            <div id="rpmValue" class="gauge-value">0</div>
-        </div>
+        <div class="dashboard-inner">
+            
+            <!-- Left Side Gauges: Oil Pressure & Temp -->
+            <div class="side-gauges">
+                <!-- 1. Oil Pressure Gauge -->
+                <div class="small-gauge-box">
+                    <div class="small-gauge-title">OIL PRESS 🛢️</div>
+                    <svg viewBox="0 0 120 42">
+                        <!-- Frame Box Window -->
+                        <rect x="2" y="2" width="116" height="38" rx="4" fill="#0b0c0f" stroke="#252830" stroke-width="2"/>
+                        <!-- Scale Track -->
+                        <line x1="28" y1="21" x2="92" y2="21" stroke="#2f3442" stroke-width="4" stroke-linecap="round"/>
+                        <line x1="28" y1="15" x2="28" y2="27" stroke="#666" stroke-width="1.5"/>
+                        <line x1="60" y1="17" x2="60" y2="25" stroke="#444" stroke-width="1"/>
+                        <line x1="92" y1="15" x2="92" y2="27" stroke="#666" stroke-width="1.5"/>
+                        <!-- Labels -->
+                        <text x="14" y="21" class="gauge-unit" text-anchor="middle">L</text>
+                        <text x="106" y="21" class="gauge-unit" text-anchor="middle">H</text>
+                        <!-- Moving Needle Group -->
+                        <g id="oilNeedleGroup" class="linear-needle-group" style="transform: translateX(0px);">
+                            <line x1="28" y1="8" x2="28" y2="34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.9))"/>
+                        </g>
+                    </svg>
+                </div>
 
-        <!-- Gauge 2: Velocity -->
-        <div class="gauge-card">
-            <div class="gauge">
-                <div id="speedNeedle" class="needle"></div>
-                <div class="needle-cap"></div>
+                <!-- 2. Water Temp Gauge -->
+                <div class="small-gauge-box">
+                    <div class="small-gauge-title">TEMP 🌡️</div>
+                    <svg viewBox="0 0 120 42">
+                        <!-- Frame Box Window -->
+                        <rect x="2" y="2" width="116" height="38" rx="4" fill="#0b0c0f" stroke="#252830" stroke-width="2"/>
+                        <!-- Scale Track -->
+                        <line x1="28" y1="21" x2="92" y2="21" stroke="#2f3442" stroke-width="4" stroke-linecap="round"/>
+                        <!-- Red Zone Warning Area -->
+                        <line x1="78" y1="21" x2="92" y2="21" stroke="#e53935" stroke-width="4" stroke-linecap="round"/>
+                        <line x1="28" y1="15" x2="28" y2="27" stroke="#666" stroke-width="1.5"/>
+                        <line x1="60" y1="17" x2="60" y2="25" stroke="#444" stroke-width="1"/>
+                        <line x1="92" y1="15" x2="92" y2="27" stroke="#e53935" stroke-width="1.5"/>
+                        <!-- Labels -->
+                        <text x="14" y="21" class="gauge-unit" text-anchor="middle">C</text>
+                        <text x="106" y="21" class="gauge-unit" text-anchor="middle" fill="#e53935">H</text>
+                        <!-- Moving Needle Group -->
+                        <g id="tempNeedleGroup" class="linear-needle-group" style="transform: translateX(0px);">
+                            <line x1="28" y1="8" x2="28" y2="34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.9))"/>
+                        </g>
+                    </svg>
+                </div>
             </div>
-            <div class="gauge-title">ความเร็ว (KM/H)</div>
-            <div id="speedValue" class="gauge-value">0.0</div>
+
+            <!-- Tachometer (วัดรอบ x1000 RPM) -->
+            <div class="gauge-card">
+                <svg viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="88" fill="#14161c" stroke="#252933" stroke-width="3"/>
+                    <path d="M 36 164 A 80 80 0 1 1 164 164" fill="none" stroke="#2f3442" stroke-width="4"/>
+                    <path d="M 136 43 A 80 80 0 0 1 164 164" fill="none" stroke="#e53935" stroke-width="6"/>
+
+                    <text x="36" y="156" class="gauge-text">0</text>
+                    <text x="26" y="112" class="gauge-text">1</text>
+                    <text x="46" y="68"  class="gauge-text">2</text>
+                    <text x="96" y="48"  class="gauge-text">3</text>
+                    <text x="144" y="68" class="gauge-text">4</text>
+                    <text x="162" y="112" class="gauge-text" fill="#ff5252">5</text>
+                    <text x="148" y="156" class="gauge-text" fill="#ff5252">6</text>
+
+                    <text x="100" y="135" text-anchor="middle" class="gauge-unit">x1000r/min</text>
+
+                    <line id="rpmNeedle" x1="100" y1="100" x2="30" y2="100" class="needle" style="transform: rotate(-45deg);"/>
+                    <circle cx="100" cy="100" r="10" class="needle-cap"/>
+                </svg>
+            </div>
+
+            <!-- Speedometer (วัดความเร็ว km/h) -->
+            <div class="gauge-card">
+                <svg viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="88" fill="#14161c" stroke="#252933" stroke-width="3"/>
+                    <path d="M 36 164 A 80 80 0 1 1 164 164" fill="none" stroke="#2f3442" stroke-width="4"/>
+
+                    <text x="36" y="156" class="gauge-text">0</text>
+                    <text x="22" y="122" class="gauge-text">20</text>
+                    <text x="32" y="82"  class="gauge-text">40</text>
+                    <text x="56" y="52"  class="gauge-text">60</text>
+                    <text x="96" y="42"  class="gauge-text">80</text>
+                    <text x="136" y="52" class="gauge-text">100</text>
+                    <text x="160" y="82" class="gauge-text">120</text>
+                    <text x="166" y="122" class="gauge-text">140</text>
+                    <text x="148" y="156" class="gauge-text">160</text>
+
+                    <text x="100" y="138" text-anchor="middle" class="gauge-unit">km/h</text>
+
+                    <line id="speedNeedle" x1="100" y1="100" x2="30" y2="100" class="needle" style="transform: rotate(-45deg);"/>
+                    <circle cx="100" cy="100" r="10" class="needle-cap"/>
+                </svg>
+
+                <div class="odometer-box" id="odometerDisplay">476195</div>
+            </div>
+
+            <!-- Right Side Gauges: Battery & Fuel -->
+            <div class="side-gauges">
+                <!-- 3. Battery Voltage Gauge -->
+                <div class="small-gauge-box">
+                    <div class="small-gauge-title">BATTERY 🔋</div>
+                    <svg viewBox="0 0 120 42">
+                        <!-- Frame Box Window -->
+                        <rect x="2" y="2" width="116" height="38" rx="4" fill="#0b0c0f" stroke="#252830" stroke-width="2"/>
+                        <!-- Scale Track -->
+                        <line x1="28" y1="21" x2="92" y2="21" stroke="#2f3442" stroke-width="4" stroke-linecap="round"/>
+                        <line x1="28" y1="15" x2="28" y2="27" stroke="#e53935" stroke-width="1.5"/>
+                        <line x1="60" y1="17" x2="60" y2="25" stroke="#444" stroke-width="1"/>
+                        <line x1="92" y1="15" x2="92" y2="27" stroke="#666" stroke-width="1.5"/>
+                        <!-- Labels -->
+                        <text x="14" y="21" class="gauge-unit" text-anchor="middle" fill="#e53935">10</text>
+                        <text x="106" y="21" class="gauge-unit" text-anchor="middle">18</text>
+                        <!-- Moving Needle Group -->
+                        <g id="voltNeedleGroup" class="linear-needle-group" style="transform: translateX(0px);">
+                            <line x1="28" y1="8" x2="28" y2="34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.9))"/>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- 4. Fuel Level Gauge -->
+                <div class="small-gauge-box">
+                    <div class="small-gauge-title">FUEL ⛽</div>
+                    <svg viewBox="0 0 120 42">
+                        <!-- Frame Box Window -->
+                        <rect x="2" y="2" width="116" height="38" rx="4" fill="#0b0c0f" stroke="#252830" stroke-width="2"/>
+                        <!-- Scale Track -->
+                        <line x1="28" y1="21" x2="92" y2="21" stroke="#2f3442" stroke-width="4" stroke-linecap="round"/>
+                        <!-- Red Zone Low Fuel Area -->
+                        <line x1="28" y1="21" x2="42" y2="21" stroke="#e53935" stroke-width="4" stroke-linecap="round"/>
+                        <line x1="28" y1="15" x2="28" y2="27" stroke="#e53935" stroke-width="1.5"/>
+                        <line x1="60" y1="17" x2="60" y2="25" stroke="#444" stroke-width="1"/>
+                        <line x1="92" y1="15" x2="92" y2="27" stroke="#666" stroke-width="1.5"/>
+                        <!-- Labels -->
+                        <text x="14" y="21" class="gauge-unit" text-anchor="middle" fill="#e53935">E</text>
+                        <text x="106" y="21" class="gauge-unit" text-anchor="middle">F</text>
+                        <!-- Moving Needle Group -->
+                        <g id="fuelNeedleGroup" class="linear-needle-group" style="transform: translateX(0px);">
+                            <line x1="28" y1="8" x2="28" y2="34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.9))"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+
         </div>
     </div>
 
+    <!-- JavaScript Logic -->
     <script>
-        const connectBtn = document.getElementById('connectBtn');
-        const statusText = document.getElementById('statusText');
-        const rpmNeedle = document.getElementById('rpmNeedle');
-        const speedNeedle = document.getElementById('speedNeedle');
-        const rpmValue = document.getElementById('rpmValue');
-        const speedValue = document.getElementById('speedValue');
-
         let port;
         let reader;
-        let inputBuffer = ""; // Buffer สะสมข้อความจาก Serial Stream
+        let demoInterval = null;
 
-        connectBtn.addEventListener('click', async () => {
-            if ('serial' in navigator) {
-                try {
-                    // 1. เลือกพอร์ต Serial (ST-Link / USB Serial)
-                    port = await navigator.serial.requestPort();
+        // --- Gauge Calculators ---
+        // RPM Range 0 - 6000 rpm -> Angle -45deg to 225deg
+        function setRPM(rpm) {
+            rpm = Math.max(0, Math.min(6000, rpm));
+            const angle = -45 + (rpm / 6000) * 270;
+            document.getElementById('rpmNeedle').style.transform = `rotate(${angle}deg)`;
+        }
 
-                    // 2. ตั้งค่า Baud Rate 9600 ให้ตรงกับ STM32 (USART2->BRR = 0x683)
-                    await port.open({ baudRate: 9600 });
+        // Speed Range 0 - 160 km/h -> Angle -45deg to 225deg
+        function setSpeed(speed) {
+            speed = Math.max(0, Math.min(160, speed));
+            const angle = -45 + (speed / 160) * 270;
+            document.getElementById('speedNeedle').style.transform = `rotate(${angle}deg)`;
+        }
 
-                    statusText.textContent = "เชื่อมต่อสำเร็จ (9600 Baud)";
-                    statusText.classList.add('connected');
-                    connectBtn.disabled = true;
+        // Helper for Linear Box Gauges (0.0 to 1.0 ratio -> 0px to 64px translation)
+        function setLinearGauge(groupId, ratio) {
+            ratio = Math.max(0, Math.min(1, ratio));
+            const translateX = ratio * 64; // Distance from left tick (28px) to right tick (92px)
+            document.getElementById(groupId).style.transform = `translateX(${translateX}px)`;
+        }
 
-                    // 3. เริ่มลูปอ่านข้อมูล
-                    readSerialData();
-                } catch (err) {
-                    alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err.message);
-                }
-            } else {
-                alert("เบราว์เซอร์นี้ไม่รองรับ Web Serial API (แนะนำให้ใช้ Google Chrome หรือ Edge)");
+        // Specific Linear Setters
+        function setOilPressure(ratio) { setLinearGauge('oilNeedleGroup', ratio); }
+        function setWaterTemp(ratio) { setLinearGauge('tempNeedleGroup', ratio); }
+        function setBatteryVolts(volts) {
+            // Range 10V - 18V
+            const ratio = (volts - 10) / (18 - 10);
+            setLinearGauge('voltNeedleGroup', ratio);
+        }
+        function setFuelLevel(ratio) { setLinearGauge('fuelNeedleGroup', ratio); }
+
+        // --- Web Serial Connection Handler ---
+        async function connectSerial() {
+            if (!("serial" in navigator)) {
+                alert("เบราว์เซอร์ของคุณไม่รองรับ Web Serial API (แนะนำให้ใช้ Google Chrome หรือ MS Edge)");
+                return;
             }
-        });
 
-        async function readSerialData() {
-            const textDecoder = new TextDecoderStream();
-            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-            reader = textDecoder.readable.getReader();
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) {
-                    reader.releaseLock();
-                    break;
-                }
+                updateStatus(true, "เชื่อมต่อสำเร็จ (Connected @ 9600 baud)");
 
-                if (value) {
-                    // สะสมข้อความเข้า Buffer
-                    inputBuffer += value;
+                if (demoInterval) toggleDemo(); // Stop demo mode if running
 
-                    // แยกสายข้อมูลด้วยบรรทัดใหม่ (\n)
-                    let lines = inputBuffer.split('\n');
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
 
-                    // เก็บข้อความท่อนสุดท้ายที่ยังไม่สมบูรณ์ไว้ใน Buffer สำหรับรอบถัดไป
-                    inputBuffer = lines.pop();
+                let buffer = "";
 
-                    // นำบรรทัดที่สมบูรณ์แล้วไปประมวลผล
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += value;
+                    let lines = buffer.split("\n");
+                    buffer = lines.pop(); // Hold last incomplete line
+
                     for (let line of lines) {
-                        parseLineData(line.trim());
+                        parseLine(line.trim());
                     }
                 }
+            } catch (err) {
+                console.error("Serial error:", err);
+                updateStatus(false, "การเชื่อมต่อล้มเหลว: " + err.message);
             }
         }
 
-        function parseLineData(line) {
+        // Parse UART Strings from STM32 (Clean CSV format: <RPM>,<VELOCITY>)
+        function parseLine(line) {
             if (!line) return;
 
-            // ข้อมูลถูกส่งมาในรูปแบบ CSV: <RPM>,<VELOCITY> (เช่น "800.0,0.0")
+            // 1. รองรับรูปแบบ Clean CSV: <RPM>,<VELOCITY> (เช่น "800.0,0.0")
             const parts = line.split(',');
-
             if (parts.length === 2) {
-                const rpm = parseFloat(parts[0]);
-                const velocity = parseFloat(parts[1]);
+                const rpmVal = parseFloat(parts[0]);
+                const velVal = parseFloat(parts[1]);
 
-                // กรองข้อความขยะ ป้องกันไม่ให้ค่า NaN หรือข้อความ Debug ทำลายการแสดงผล
-                if (!isNaN(rpm) && !isNaN(velocity)) {
-                    updateDashboard(rpm, velocity);
+                if (!isNaN(rpmVal) && !isNaN(velVal)) {
+                    setRPM(rpmVal);
+                    setSpeed(velVal);
+
+                    // แรงดันน้ำมันเครื่องเพิ่มขึ้นตามรอบเครื่องยนต์
+                    const oilRatio = 0.2 + (rpmVal / 6000) * 0.6;
+                    setOilPressure(oilRatio);
                 }
+                return;
+            }
+
+            // 2. สำรองสำหรับรูปแบบเดิมที่มีคำว่า RPM: / Velocity: (เผื่อใช้เทสผ่าน Serial Monitor)
+            const rpmMatch = line.match(/RPM:\s*([\d.]+)/i);
+            if (rpmMatch) {
+                const rpmVal = parseFloat(rpmMatch[1]);
+                setRPM(rpmVal);
+
+                const oilRatio = 0.2 + (rpmVal / 6000) * 0.6;
+                setOilPressure(oilRatio);
+            }
+
+            const velMatch = line.match(/Velocity:\s*([\d.]+)/i);
+            if (velMatch) {
+                const velVal = parseFloat(velMatch[1]);
+                setSpeed(velVal);
             }
         }
 
-        function updateDashboard(rpm, velocity) {
-            // 1. อัปเดตตัวเลขแสดงผล
-            rpmValue.textContent = Math.round(rpm);
-            speedValue.textContent = velocity.toFixed(1);
-
-            // 2. คำนวณมุมหมุนของเข็มเรือนไมล์ (มุมเริ่มที่ -120 deg ถึง +120 deg)
-            // RPM Max = 4500 RPM
-            const maxRpm = 4500.0;
-            const rpmClamped = Math.min(Math.max(rpm, 0), maxRpm);
-            const rpmDeg = -120 + (rpmClamped / maxRpm) * 240;
-
-            // Speed Max = 180 km/h
-            const maxSpeed = 180.0;
-            const speedClamped = Math.min(Math.max(velocity, 0), maxSpeed);
-            const speedDeg = -120 + (speedClamped / maxSpeed) * 240;
-
-            // 3. ปรับการหมุนของเข็มผ่าน CSS Transform
-            rpmNeedle.style.transform = `rotate(${rpmDeg}deg)`;
-            speedNeedle.style.transform = `rotate(${speedDeg}deg)`;
+        // Status Helper
+        function updateStatus(isConnected, message) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (isConnected) {
+                statusDot.classList.add('connected');
+            } else {
+                statusDot.classList.remove('connected');
+            }
+            statusText.innerText = message;
         }
+
+        // Demo Mode Logic
+        function toggleDemo() {
+            const btn = document.getElementById('btnDemo');
+            if (demoInterval) {
+                clearInterval(demoInterval);
+                demoInterval = null;
+                btn.innerText = "โหมดทดสอบ (Demo Mode)";
+                btn.style.backgroundColor = "#2b303a";
+                // Reset Gauges
+                setRPM(0);
+                setSpeed(0);
+                setDefaultSideGauges();
+            } else {
+                btn.innerText = "หยุดการทดสอบ (Stop Demo)";
+                btn.style.backgroundColor = "#e53935";
+                let count = 0;
+                demoInterval = setInterval(() => {
+                    count += 0.05;
+                    const simulatedRPM = Math.abs(Math.sin(count)) * 4200 + 800;
+                    const simulatedSpeed = Math.abs(Math.sin(count)) * 130;
+                    
+                    setRPM(simulatedRPM);
+                    setSpeed(simulatedSpeed);
+
+                    // Dynamic Demo Animation for Side Gauges
+                    setOilPressure(0.25 + (simulatedRPM / 6000) * 0.5);
+                    setWaterTemp(0.42 + Math.sin(count * 0.2) * 0.05);
+                    setBatteryVolts(13.8 + Math.sin(count * 0.5) * 0.4);
+                    setFuelLevel(0.72 - (count * 0.001) % 0.5); // Slowly drops
+                }, 50);
+            }
+        }
+
+        // Set Default Positions for Static Side Gauges
+        function setDefaultSideGauges() {
+            setOilPressure(0.4);   // Normal oil pressure
+            setWaterTemp(0.42);    // Normal engine temp (below H)
+            setBatteryVolts(14.0); // Normal charging state (~14V)
+            setFuelLevel(0.75);    // 3/4 tank full
+        }
+
+        // Initialize Gauges
+        setRPM(0);
+        setSpeed(0);
+        setDefaultSideGauges();
     </script>
 </body>
 </html>
