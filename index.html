@@ -211,6 +211,30 @@
             transition: transform 0.15s ease-out;
         }
 
+        /* กระชาก: หน้าปัดสั่น 1 ครั้ง แรงตาม --jerk-px */
+        .dashboard-container.jerk-shake {
+            animation: jerkShake 0.45s ease-out;
+        }
+        @keyframes jerkShake {
+            0%   { transform: translate(0, 0); }
+            15%  { transform: translate(calc(var(--jerk-px) * -1), calc(var(--jerk-px) * 0.4)); }
+            35%  { transform: translate(var(--jerk-px), calc(var(--jerk-px) * -0.3)); }
+            55%  { transform: translate(calc(var(--jerk-px) * -0.5), 0); }
+            75%  { transform: translate(calc(var(--jerk-px) * 0.25), 0); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* เครื่องหอบ: เข็มรอบสั่นถี่ๆ */
+        .lug-jitter {
+            animation: lugJitter 0.12s linear infinite;
+            transform-origin: 100px 100px;
+        }
+        @keyframes lugJitter {
+            0%   { transform: rotate(-1.5deg); }
+            50%  { transform: rotate(1.5deg); }
+            100% { transform: rotate(-1.5deg); }
+        }
+
         /* Responsive Breakpoints */
         @media (max-width: 950px) {
             .dashboard-inner {
@@ -230,6 +254,8 @@
         <div class="status-container">
             <div id="statusDot" class="status-dot"></div>
             <span id="statusText" style="font-weight: bold; font-size: 15px;">ไม่ได้เชื่อมต่อ (Disconnected)</span>
+            <span id="stallText" style="font-weight: bold; font-size: 14px; color: #ff5252;"></span>
+            <span id="warnText" style="font-weight: bold; font-size: 14px; color: #ffb300;"></span>
         </div>
         <div>
             <button id="btnDemo" class="btn" onclick="toggleDemo()">โหมดทดสอบ (Demo Mode)</button>
@@ -305,7 +331,9 @@
 
                     <text x="100" y="135" text-anchor="middle" class="gauge-unit">x1000r/min</text>
 
-                    <line id="rpmNeedle" x1="100" y1="100" x2="30" y2="100" class="needle" style="transform: rotate(-45deg);"/>
+                    <g id="rpmNeedleJitter">
+                        <line id="rpmNeedle" x1="100" y1="100" x2="30" y2="100" class="needle" style="transform: rotate(-45deg);"/>
+                    </g>
                     <circle cx="100" cy="100" r="10" class="needle-cap"/>
                 </svg>
             </div>
@@ -423,6 +451,24 @@
         }
         function setFuelLevel(ratio) { setLinearGauge('fuelNeedleGroup', ratio); }
 
+        // Fuel from STM32 (liters, tank 56 L) -> needle only, no numbers
+        const FUEL_TANK_MAX_L = 56;
+        function setFuelLiters(liters) { setFuelLevel(liters / FUEL_TANK_MAX_L); }
+
+        // --- Odometer: integrate speed over real time between samples ---
+        let odometerKm = 476195;
+        let lastOdoTime = null;
+        function updateOdometer(speedKmh) {
+            const now = performance.now();
+            if (lastOdoTime !== null) {
+                const hours = (now - lastOdoTime) / 3600000;
+                odometerKm += Math.max(0, speedKmh) * hours;
+            }
+            lastOdoTime = now;
+            document.getElementById('odometerDisplay').innerText =
+                String(Math.floor(odometerKm)).padStart(6, '0');
+        }
+
         // --- Web Serial Connection Handler ---
         async function connectSerial() {
             if (!("serial" in navigator)) {
@@ -430,11 +476,14 @@
                 return;
             }
 
+            if (port) return; // Already connected
+
             try {
                 port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 9600 });
 
                 updateStatus(true, "เชื่อมต่อสำเร็จ (Connected @ 9600 baud)");
+                document.getElementById('btnConnect').disabled = true;
 
                 if (demoInterval) toggleDemo(); // Stop demo mode if running
 
@@ -447,7 +496,7 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    
+
                     buffer += value;
                     let lines = buffer.split("\n");
                     buffer = lines.pop(); // Hold last incomplete line
@@ -456,29 +505,72 @@
                         parseLine(line.trim());
                     }
                 }
+                await closeSerial("ตัดการเชื่อมต่อแล้ว (Disconnected)");
             } catch (err) {
                 console.error("Serial error:", err);
-                updateStatus(false, "การเชื่อมต่อล้มเหลว: " + err.message);
+                await closeSerial("การเชื่อมต่อล้มเหลว/หลุด: " + err.message);
             }
         }
 
-        // Parse UART Strings from STM32 (Clean CSV format: <RPM>,<VELOCITY>)
+        // Release the port so the user can reconnect (e.g. after unplugging USB)
+        async function closeSerial(message) {
+            try { if (reader) await reader.cancel(); } catch (e) { /* already closed */ }
+            try { if (port) await port.close(); } catch (e) { /* already closed */ }
+            reader = null;
+            port = null;
+            lastOdoTime = null;
+            document.getElementById('btnConnect').disabled = false;
+            updateStatus(false, message);
+            setStallReason(0);
+            setWarning(0, 0);
+            setRPM(0);
+            setSpeed(0);
+        }
+
+        if ("serial" in navigator) {
+            navigator.serial.addEventListener('disconnect', (event) => {
+                if (port && event.target === port) {
+                    closeSerial("บอร์ดถูกถอดออก (Disconnected)");
+                }
+            });
+        }
+
+        // Parse UART Strings from STM32 (Clean CSV format: <RPM>,<VELOCITY>,<FUEL_LITERS>)
         function parseLine(line) {
             if (!line) return;
 
-            // 1. รองรับรูปแบบ Clean CSV: <RPM>,<VELOCITY> (เช่น "800.0,0.0")
+            // 1. รองรับรูปแบบ Clean CSV: <RPM>,<VELOCITY>[,<FUEL>] (เช่น "800.0,0.0,28.0")
             const parts = line.split(',');
-            if (parts.length === 2) {
+            if (parts.length >= 2 && parts.length <= 6) {
                 const rpmVal = parseFloat(parts[0]);
                 const velVal = parseFloat(parts[1]);
 
                 if (!isNaN(rpmVal) && !isNaN(velVal)) {
                     setRPM(rpmVal);
                     setSpeed(velVal);
+                    updateOdometer(velVal);
 
-                    // แรงดันน้ำมันเครื่องเพิ่มขึ้นตามรอบเครื่องยนต์
-                    const oilRatio = 0.2 + (rpmVal / 6000) * 0.6;
+                    // แรงดันน้ำมันเครื่องเพิ่มขึ้นตามรอบเครื่องยนต์ (เครื่องดับ = L)
+                    const oilRatio = rpmVal > 0 ? 0.2 + (rpmVal / 6000) * 0.6 : 0;
                     setOilPressure(oilRatio);
+                }
+
+                // ระดับน้ำมันในถัง (อัปเดตหลังกดยืนยันการเติมเท่านั้น)
+                if (parts.length >= 3) {
+                    const fuelVal = parseFloat(parts[2]);
+                    if (!isNaN(fuelVal)) {
+                        setFuelLiters(fuelVal);
+                    }
+                }
+
+                // สาเหตุเครื่องดับล่าสุด (0 = ไม่มี / สตาร์ทใหม่แล้ว)
+                if (parts.length >= 4) {
+                    setStallReason(parseInt(parts[3], 10));
+                }
+
+                // คำเตือนเครื่องผิดปกติ + ความแรงกระชาก
+                if (parts.length === 6) {
+                    setWarning(parseInt(parts[4], 10), parseInt(parts[5], 10));
                 }
                 return;
             }
@@ -498,6 +590,52 @@
                 const velVal = parseFloat(velMatch[1]);
                 setSpeed(velVal);
             }
+        }
+
+        // Stall reason codes (must match STALL_* in mighty_x_sim.c; 1 และ 4 เลิกใช้แล้ว กลายเป็นคำเตือน)
+        const STALL_REASONS = {
+            2: "สตาร์ทค้างเกียร์โดยไม่เหยียบคลัทช์",
+            3: "เข้าเกียร์สวนทิศทางรถ",
+            5: "ปล่อยคลัทช์รอบต่ำเกินไป",
+            6: "เบรกโดยไม่เหยียบคลัทช์จนรอบตก",
+            7: "น้ำมันหมด"
+        };
+        function setStallReason(code) {
+            const text = STALL_REASONS[code];
+            document.getElementById('stallText').innerText = text ? "⚠ เครื่องดับ: " + text : "";
+        }
+
+        // Warning codes (must match WARN_* in mighty_x_sim.c)
+        const WARNINGS = {
+            1: "เครื่องหอบ",
+            2: "กระชาก",
+            3: "รอบเกิน!",
+            4: "เข้าเกียร์ไม่ได้ (เฟืองขบ)"
+        };
+        const WARN_LUGGING = 1;
+        let lastJerkIntensity = 0;
+
+        function setWarning(code, jerkIntensity) {
+            const text = WARNINGS[code];
+            document.getElementById('warnText').innerText = text ? "⚡ " + text : "";
+
+            // เข็มรอบสั่นตลอดที่เครื่องหอบ
+            document.getElementById('rpmNeedleJitter').classList.toggle('lug-jitter', code === WARN_LUGGING);
+
+            // กระชาก: สั่นหน้าปัด 1 ครั้งต่อเหตุการณ์ (ค่าเปลี่ยนจาก 0 เป็น > 0)
+            const intensity = isNaN(jerkIntensity) ? 0 : jerkIntensity;
+            if (intensity > 0 && lastJerkIntensity === 0) {
+                shakeDashboard(intensity);
+            }
+            lastJerkIntensity = intensity;
+        }
+
+        function shakeDashboard(intensity) {
+            const el = document.querySelector('.dashboard-container');
+            el.style.setProperty('--jerk-px', (2 + intensity * 0.12) + 'px'); // 2-14 px
+            el.classList.remove('jerk-shake');
+            void el.offsetWidth; // restart animation
+            el.classList.add('jerk-shake');
         }
 
         // Status Helper
@@ -536,6 +674,7 @@
                     
                     setRPM(simulatedRPM);
                     setSpeed(simulatedSpeed);
+                    updateOdometer(simulatedSpeed);
 
                     // Dynamic Demo Animation for Side Gauges
                     setOilPressure(0.25 + (simulatedRPM / 6000) * 0.5);
@@ -551,7 +690,7 @@
             setOilPressure(0.4);   // Normal oil pressure
             setWaterTemp(0.42);    // Normal engine temp (below H)
             setBatteryVolts(14.0); // Normal charging state (~14V)
-            setFuelLevel(0.75);    // 3/4 tank full
+            setFuelLiters(28);     // STM32 starts at 28 L (half tank)
         }
 
         // Initialize Gauges
