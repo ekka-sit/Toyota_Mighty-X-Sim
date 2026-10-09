@@ -274,7 +274,10 @@
 /* ==================================================================== */
 
 /* --- ADC Buffer (อัปเดตอัตโนมัติด้วย DMA2) --- */
-volatile uint16_t g_adcBuffer[ADC_SCAN_LENGTH] = {0u, 0u, 0u, 0u, 0u};
+volatile uint16_t g_adcBuffer[ADC_SCAN_LENGTH] =
+{
+    0u, 0u, 0u, 0u, 0u
+};
 uint16_t g_throttleRaw = 0u;   /* CH0  - PA0 (กลับด้านแล้ว: 0 = ไม่เหยียบ, 4095 = เต็ม) */
 uint16_t g_joyVrxRaw   = 0u;   /* CH12 - PC2 */
 uint16_t g_joyVryRaw   = 0u;   /* CH13 - PC3 */
@@ -351,9 +354,11 @@ typedef struct
     volatile uint16_t head;
     volatile uint16_t tail;
     volatile uint16_t count;
-} UartTxBuffer_t;
+}
+UartTxBuffer_t;
 
-UartTxBuffer_t g_uartTx = { {0u}, 0u, 0u, 0u };
+/* ตัวแปร global ไม่ต้องใส่ค่าเริ่มต้น: C ตั้งทุกช่องเป็น 0 ให้อัตโนมัติก่อนเข้า main() */
+UartTxBuffer_t g_uartTx;
 
 /* ==================================================================== */
 /* 3. FUNCTION PROTOTYPES (ประกาศฟังก์ชัน)                                */
@@ -428,6 +433,7 @@ float Sound_FrequencyFromRpm(float rpm);
 
 /* Display & Communication Helpers */
 void Driver_SetOutput(GPIO_TypeDef *port, uint32_t pin, uint8_t state);
+uint8_t Driver_BitState(uint8_t value, uint8_t mask);
 void Driver_SegmentDisplay(uint8_t number);
 void Driver_BuzzerOn(float frequencyHz);
 void Driver_BuzzerOff(void);
@@ -490,6 +496,10 @@ int main(void)
             /* บันทึกค่าเพื่อใช้เปรียบเทียบใน Loop ถัดไป */
             g_previousRefuelButton = g_refuelButtonPressed;
             g_previousEngineStarted = g_engineStarted;
+        }
+        else
+        {
+            /* No action */
         }
     }
 }
@@ -697,6 +707,10 @@ void TIM2_IRQHandler(void)
         /* สั่ง ADC1 Scan ทั้ง 5 ช่อง ผลลัพธ์ไหลเข้า g_adcBuffer ผ่าน DMA */
         ADC1->CR2 |= ADC_CR2_SWSTART;
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* TIM3 Interrupt (ทุกครึ่งคาบเสียง) -> กลับสถานะขา buzzer ได้คลื่นสี่เหลี่ยม */
@@ -706,6 +720,10 @@ void TIM3_IRQHandler(void)
     {
         TIM3->SR = ~TIM_SR_UIF;
         GPIOC->ODR ^= (1u << PIN_BUZZER);
+    }
+    else
+    {
+        /* No action */
     }
 }
 
@@ -717,6 +735,10 @@ void EXTI3_IRQHandler(void)
         EXTI->PR = EXTI_PR_PR3;
         g_clutchPressedLive = Driver_ReadClutchRaw();
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* EXTI4 ISR (สวิทช์เบรก PB4) */
@@ -727,6 +749,10 @@ void EXTI4_IRQHandler(void)
         EXTI->PR = EXTI_PR_PR4;
         g_brakePressedLive = Driver_ReadBrakeRaw();
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* EXTI9_5 ISR (ปุ่มเติมน้ำมัน PB5) */
@@ -736,6 +762,10 @@ void EXTI9_5_IRQHandler(void)
     {
         EXTI->PR = EXTI_PR_PR5;
         g_refuelButtonLive = Driver_ReadRefuelButtonRaw();
+    }
+    else
+    {
+        /* No action */
     }
 }
 
@@ -767,7 +797,19 @@ void EXTI15_10_IRQHandler(void)
                     /* No action: เครื่องติดอยู่ ห้ามถอดกุญแจ */
                 }
             }
+            else
+            {
+                /* No action */
+            }
         }
+        else
+        {
+            /* No action */
+        }
+    }
+    else
+    {
+        /* No action */
     }
 }
 
@@ -786,6 +828,10 @@ void USART2_IRQHandler(void)
         {
             USART2->CR1 &= ~USART_CR1_TXEIE;
         }
+    }
+    else
+    {
+        /* No action */
     }
 }
 
@@ -817,6 +863,10 @@ uint8_t App_DebounceButton(uint8_t rawState, uint8_t stableState, uint8_t *count
             newState = rawState;
             *counter = 0u;
         }
+        else
+        {
+            /* No action */
+        }
     }
     else
     {
@@ -846,6 +896,10 @@ void App_UpdateIgnitionSystem(void)
         {
             g_engineStalled = 0u;
         }
+        else
+        {
+            /* No action */
+        }
     }
     else if ((g_keyInserted == 1u) && (g_ignitionRaw >= HALF_ADC_VALUE) && (g_fuelLiters > 0.0f))
     {
@@ -867,6 +921,10 @@ void App_UpdateStatusLed(void)
     {
         blinkTicks = BLINK_STALL_TICKS;
     }
+    else
+    {
+        /* No action */
+    }
 
     if ((g_engineStalled == 1u) || ((g_keyInserted == 1u) && (g_engineStarted == 0u)))
     {
@@ -876,6 +934,10 @@ void App_UpdateStatusLed(void)
             g_blinkTickCounter = 0u;
             g_ledBlinkState ^= 1u;
             Driver_SetOutput(GPIOB, PIN_STATUS_LED, g_ledBlinkState);
+        }
+        else
+        {
+            /* No action */
         }
     }
     else if (g_engineStarted == 1u)
@@ -911,6 +973,10 @@ void App_UpdateLamps(void)
         {
             g_warningBlinkTicks = 0u;
             g_warningLedState ^= 1u;
+        }
+        else
+        {
+            /* No action */
         }
     }
     else
@@ -1035,6 +1101,10 @@ void App_UpdateGearSelection(void)
             {
                 candidateTicks++;
             }
+            else
+            {
+                /* No action */
+            }
 
             if (candidateTicks >= GEAR_CONFIRM_TICKS)
             {
@@ -1049,6 +1119,10 @@ void App_UpdateGearSelection(void)
                     g_currentGear = rawGear;
                     candidateTicks = 0u;
                 }
+            }
+            else
+            {
+                /* No action */
             }
         }
         else
@@ -1091,6 +1165,10 @@ void App_UpdateRefuelMode(void)
     {
         buttonPressedEdge = 1u;
     }
+    else
+    {
+        /* No action */
+    }
 
     if (g_refuelActive == 0u)
     {
@@ -1105,6 +1183,10 @@ void App_UpdateRefuelMode(void)
             g_refuelLightTicks = 0u;
             g_refuelLightDetected = 0u;
             g_currentGear = GEAR_NEUTRAL;
+        }
+        else
+        {
+            /* No action */
         }
     }
     else if (buttonPressedEdge == 1u)
@@ -1156,6 +1238,14 @@ void App_CountRefuelLiters(void)
                 g_refuelLightTicks = 0u;
                 g_refuelAddLiters++;
             }
+            else
+            {
+                /* No action */
+            }
+        }
+        else
+        {
+            /* No action */
         }
     }
 }
@@ -1169,6 +1259,10 @@ uint8_t App_RefuelHasRoom(void)
         ((g_fuelLiters + (float)g_refuelAddLiters) < FUEL_TANK_MAX_L))
     {
         hasRoom = 1u;
+    }
+    else
+    {
+        /* No action */
     }
 
     return hasRoom;
@@ -1188,6 +1282,10 @@ void App_UpdateDrivetrain(void)
     {
         powerConnected = 1u;
     }
+    else
+    {
+        /* No action */
+    }
 
     if (g_engineStarted == 0u)
     {
@@ -1204,6 +1302,10 @@ void App_UpdateDrivetrain(void)
         {
             App_EngageDriveline();
         }
+        else
+        {
+            /* No action */
+        }
 
         if (g_engineStarted == 1u)
         {
@@ -1215,6 +1317,10 @@ void App_UpdateDrivetrain(void)
             {
                 App_UpdateInGear(gearRatio, throttleRpm);
             }
+        }
+        else
+        {
+            /* No action */
         }
     }
 }
@@ -1232,10 +1338,18 @@ void App_UpdateEngineOff(uint8_t powerConnected, float gearRatio)
     {
         decay = (ENGINE_DRAG_DECAY * gearRatio) + Physics_AirDrag(g_currentVelocity);
     }
+    else
+    {
+        /* No action */
+    }
 
     if (g_brakePressed == 1u)
     {
         decay += BRAKE_DECAY;
+    }
+    else
+    {
+        /* No action */
     }
 
     App_ReduceSpeed(decay);
@@ -1253,6 +1367,10 @@ void App_UpdatePowerDisconnected(float throttleRpm)
     if (g_brakePressed == 1u)
     {
         decay += BRAKE_DECAY;
+    }
+    else
+    {
+        /* No action */
     }
 
     App_ReduceSpeed(decay);
@@ -1308,6 +1426,10 @@ void App_EngageDriveline(void)
         {
             App_ApplyEngagementJerk(wheelRpm, Physics_GearRatioFor(g_currentGear));
         }
+        else
+        {
+            /* No action */
+        }
     }
 }
 
@@ -1343,6 +1465,10 @@ void App_ApplyEngagementJerk(float wheelRpm, float gearRatio)
         g_jerkIntensity = (uint8_t)intensity;
         g_jerkHoldTicks = WARNING_HOLD_TICKS;
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /*
@@ -1370,12 +1496,20 @@ uint8_t App_EngineCanHoldSlip(float wheelRpm, float throttleRpm)
         {
             canHold = 1u;
         }
+        else
+        {
+            /* No action */
+        }
     }
     else
     {
         if ((g_throttleRaw > THROTTLE_IDLE_RAW_MAX) && (wheelRpm >= SLIP_MIN_WHEEL_RPM))
         {
             canHold = 1u;
+        }
+        else
+        {
+            /* No action */
         }
     }
 
@@ -1438,6 +1572,10 @@ void App_UpdateClutchSlip(float gearRatio, float throttleRpm)
             g_clutchSlipActive = 0u;
             g_currentRpm = wheelRpm;
         }
+        else
+        {
+            /* No action */
+        }
     }
 }
 
@@ -1456,6 +1594,10 @@ void App_UpdateInGear(float gearRatio, float throttleRpm)
         {
             App_TriggerStall(STALL_BRAKE_LUG);
         }
+        else
+        {
+            /* No action */
+        }
     }
     else
     {
@@ -1469,6 +1611,10 @@ void App_UpdateInGear(float gearRatio, float throttleRpm)
         {
             g_currentRpm += App_LugWobbleRpm();
             App_RaiseWarning(WARN_LUGGING);
+        }
+        else
+        {
+            /* No action */
         }
     }
 }
@@ -1527,6 +1673,10 @@ void App_RaiseWarning(uint8_t code)
         g_warningCode = code;
         g_warningHoldTicks = WARNING_HOLD_TICKS;
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* นับเวลาค้างคำเตือน/ความแรงกระชาก ทุก 10ms หมดเวลาแล้วล้าง */
@@ -1563,6 +1713,10 @@ float App_LugWobbleRpm(void)
     if (phase > (int32_t)LUG_WOBBLE_HALF_TICKS)
     {
         phase = (int32_t)LUG_WOBBLE_PERIOD_TICKS - phase;
+    }
+    else
+    {
+        /* No action */
     }
 
     offset = (phase * LUG_WOBBLE_STEP_RPM) - LUG_WOBBLE_RPM;
@@ -1617,6 +1771,10 @@ void App_UpdateFuel(void)
             App_TriggerStall(STALL_OUT_OF_FUEL);
         }
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* ดังตอนสตาร์ท (ไต่ความถี่ขึ้น) แล้วดังตามรอบเครื่องตลอดเวลาที่เครื่องติด, เฟืองขบ = เสียงครืด */
@@ -1636,6 +1794,10 @@ void App_UpdateBuzzer(void)
         if (g_previousEngineStarted == 0u)
         {
             g_buzzerStartTicks = BUZZER_START_TICKS;
+        }
+        else
+        {
+            /* No action */
         }
 
         if (g_buzzerStartTicks > 0u)
@@ -1688,6 +1850,10 @@ void App_ReportDashboard(void)
         Driver_UART_SendNumber((int32_t)g_jerkIntensity);
         Driver_UART_SendString("\r\n");
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* ==================================================================== */
@@ -1702,6 +1868,10 @@ uint8_t Driver_ReadClutchRaw(void)
     {
         pressed = 1u;
     }
+    else
+    {
+        /* No action */
+    }
 
     return pressed;
 }
@@ -1714,6 +1884,10 @@ uint8_t Driver_ReadBrakeRaw(void)
     {
         pressed = 1u;
     }
+    else
+    {
+        /* No action */
+    }
 
     return pressed;
 }
@@ -1725,6 +1899,10 @@ uint8_t Driver_ReadRefuelButtonRaw(void)
     if ((GPIOB->IDR & GPIO_IDR_ID5) == 0u)
     {
         pressed = 1u;
+    }
+    else
+    {
+        /* No action */
     }
 
     return pressed;
@@ -1823,6 +2001,10 @@ float Physics_MaxFloat(float a, float b)
     {
         result = a;
     }
+    else
+    {
+        /* No action */
+    }
 
     return result;
 }
@@ -1834,6 +2016,10 @@ float Physics_MinFloat(float a, float b)
     if (a < b)
     {
         result = a;
+    }
+    else
+    {
+        /* No action */
     }
 
     return result;
@@ -1919,12 +2105,29 @@ void Driver_SetOutput(GPIO_TypeDef *port, uint32_t pin, uint8_t state)
     }
 }
 
+/* คืน 1u ถ้าบิตตาม mask ใน value เป็น 1 ไม่งั้นคืน 0u (เลี่ยงการแปลงผลเปรียบเทียบเป็นตัวเลขตรงๆ ตามกฎข้อ 13) */
+uint8_t Driver_BitState(uint8_t value, uint8_t mask)
+{
+    uint8_t state = 0u;
+
+    if ((value & mask) != 0u)
+    {
+        state = 1u;
+    }
+    else
+    {
+        /* No action */
+    }
+
+    return state;
+}
+
 void Driver_SegmentDisplay(uint8_t number)
 {
-    Driver_SetOutput(GPIOC, PIN_SEG_BIT0, (uint8_t)((number & SEG_BCD_BIT0) != 0u));
-    Driver_SetOutput(GPIOA, PIN_SEG_BIT1, (uint8_t)((number & SEG_BCD_BIT1) != 0u));
-    Driver_SetOutput(GPIOB, PIN_SEG_BIT2, (uint8_t)((number & SEG_BCD_BIT2) != 0u));
-    Driver_SetOutput(GPIOA, PIN_SEG_BIT3, (uint8_t)((number & SEG_BCD_BIT3) != 0u));
+    Driver_SetOutput(GPIOC, PIN_SEG_BIT0, Driver_BitState(number, SEG_BCD_BIT0));
+    Driver_SetOutput(GPIOA, PIN_SEG_BIT1, Driver_BitState(number, SEG_BCD_BIT1));
+    Driver_SetOutput(GPIOB, PIN_SEG_BIT2, Driver_BitState(number, SEG_BCD_BIT2));
+    Driver_SetOutput(GPIOA, PIN_SEG_BIT3, Driver_BitState(number, SEG_BCD_BIT3));
 }
 
 /* ตั้งความถี่ TIM3 (toggle 2 ครั้งต่อคาบ) แล้วเปิดนับถ้ายังไม่ได้เปิด */
@@ -1941,6 +2144,10 @@ void Driver_BuzzerOn(float frequencyHz)
         TIM3->CR1 |= TIM_CR1_CEN;
         g_buzzerRunning = 1u;
     }
+    else
+    {
+        /* No action */
+    }
 }
 
 /* หยุด TIM3 แล้วดึงขา buzzer ลง 0 (ไม่ค้างกระแสที่ลำโพง) */
@@ -1952,6 +2159,10 @@ void Driver_BuzzerOff(void)
         TIM3->SR = ~TIM_SR_UIF;
         NVIC_ClearPendingIRQ(TIM3_IRQn);
         g_buzzerRunning = 0u;
+    }
+    else
+    {
+        /* No action */
     }
 
     Driver_SetOutput(GPIOC, PIN_BUZZER, 0u);
@@ -1986,6 +2197,10 @@ void Driver_UART_SendChar(char c)
         g_uartTx.count++;
 
         USART2->CR1 |= USART_CR1_TXEIE;
+    }
+    else
+    {
+        /* No action */
     }
 }
 
@@ -2048,6 +2263,10 @@ void Driver_UART_SendFloatOneDecimal(float value)
     {
         Driver_UART_SendChar('-');
         magnitude = -value;
+    }
+    else
+    {
+        /* No action */
     }
 
     tenths = (int32_t)((magnitude * ONE_DECIMAL_SCALE) + ROUND_HALF);
